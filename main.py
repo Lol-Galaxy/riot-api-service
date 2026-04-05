@@ -21,8 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(summoner_router)
 app.include_router(matches_router)
+app.include_router(summoner_router)
 app.include_router(champion_router)
 app.include_router(match_router)
 
