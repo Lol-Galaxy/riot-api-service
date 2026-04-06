@@ -53,8 +53,10 @@ class RateLimiter:
         self._timestamps: list[float] = []
 
     async def acquire(self) -> None:
-        async with self._lock:
-            while True:
+        # Lock released during sleep so other coroutines can check — no deadlock on large batches
+        while True:
+            wait = 0.0
+            async with self._lock:
                 now = time.monotonic()
                 self._timestamps = [t for t in self._timestamps if now - t < 120.0]
 
@@ -63,7 +65,7 @@ class RateLimiter:
 
                 if in_short < 19 and in_long < 95:
                     self._timestamps.append(now)
-                    return
+                    return  # slot acquired, lock released
 
                 if in_short >= 19:
                     oldest = sorted(t for t in self._timestamps if now - t < 1.0)[0]
@@ -71,7 +73,8 @@ class RateLimiter:
                 else:
                     wait = 120.0 - (now - sorted(self._timestamps)[0])
 
-                await asyncio.sleep(max(wait, 0.05))
+            # Sleep OUTSIDE the lock so other tasks can try concurrently
+            await asyncio.sleep(max(wait, 0.05))
 
 
 # Un RateLimiter par clé API (chaque app a le sien)
