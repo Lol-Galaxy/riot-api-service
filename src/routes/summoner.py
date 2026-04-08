@@ -19,6 +19,41 @@ def _require_key(x_riot_token: str | None) -> str:
     return x_riot_token
 
 
+# Routes spécifiques en PREMIER — FastAPI fait du first-match.
+# /{region}/{puuid}/rank et /mastery doivent précéder /{region}/{game_name}/{tag_line}
+# sinon le puuid serait interprété comme game_name et "rank"/"mastery" comme tag_line.
+
+@router.get("/{region}/{puuid}/rank")
+async def summoner_rank(
+    region: str,
+    puuid: str,
+    x_riot_token: str | None = Header(default=None),
+):
+    api_key = _require_key(x_riot_token)
+    try:
+        return await get_ranked_by_puuid(puuid, region, api_key)
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{region}/{puuid}/mastery")
+async def summoner_mastery(
+    region: str,
+    puuid: str,
+    count: int = 20,
+    x_riot_token: str | None = Header(default=None),
+):
+    api_key = _require_key(x_riot_token)
+    try:
+        return await get_mastery_by_puuid(puuid, region, api_key, count=min(count, 50))
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/{region}/{game_name}/{tag_line}")
 async def summoner_by_riot_id(
     region: str,
@@ -51,37 +86,6 @@ async def summoner_by_riot_id(
             "ranked": ranked,
             "mastery": mastery,
         }
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/{region}/{puuid}/rank")
-async def summoner_rank(
-    region: str,
-    puuid: str,
-    x_riot_token: str | None = Header(default=None),
-):
-    api_key = _require_key(x_riot_token)
-    try:
-        return await get_ranked_by_puuid(puuid, region, api_key)
-    except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/{region}/{puuid}/mastery")
-async def summoner_mastery(
-    region: str,
-    puuid: str,
-    count: int = 20,
-    x_riot_token: str | None = Header(default=None),
-):
-    api_key = _require_key(x_riot_token)
-    try:
-        return await get_mastery_by_puuid(puuid, region, api_key, count=min(count, 50))
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=e.response.status_code, detail=str(e))
     except ValueError as e:
